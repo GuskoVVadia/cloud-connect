@@ -1,33 +1,56 @@
-<?import javafx.geometry.Insets?>
-<?import javafx.scene.layout.GridPane?>
+<?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.Label?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
 
-<?import javafx.scene.layout.VBox?>
-<?import javafx.scene.control.TableView?>
-<?import javafx.scene.layout.HBox?>
-<?import javafx.scene.control.TextField?>
+<VBox fx:id="mainBox" prefHeight="500" prefWidth="1000" xmlns="http://javafx.com/javafx/10.0.2-internal" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Controllers.MainController">
 
-<VBox fx:id="mainBox" fx:controller="Controllers.MainController" xmlns:fx="http://javafx.com/fxml" prefHeight="500" prefWidth="1000">
 
-    <HBox fx:id="HBoxTable" spacing="2" VBox.vgrow="ALWAYS">
-        <TableView fx:id="leftFilesTable" HBox.hgrow="ALWAYS" />
-        <TableView fx:id="rightFilesTable" HBox.hgrow="ALWAYS" />
-    </HBox>
+    <HBox VBox.vgrow="ALWAYS">
 
-    <HBox fx:id="HBoxStatusLines" spacing="2">
-        <TextField fx:id="clientStatusLine" editable="false" HBox.hgrow="ALWAYS"/>
-        <TextField fx:id="serverStatusLine" editable="false" HBox.hgrow="ALWAYS"/>
+        <VBox fx:id="LeftPaneClientVBox" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
+            <HBox>
+                <ComboBox fx:id="diskBoxLeftPane" onAction="#selectDiskLeftPaneAction"/>
+                <TextField fx:id="clientPathField" editable="false" HBox.hgrow="ALWAYS" />
+                <Button text="Up" onAction="#btnPathUpLeftPaneAction"/>
+            </HBox>
+            <TableView fx:id="clientFilesTableLeftPane" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS"
+                       onMouseClicked="#clientFilesTableLeftPaneMouseAction"/>
+            <TextField fx:id="clientStatusLine" editable="false" HBox.hgrow="ALWAYS">
+            <VBox.margin>
+               <Insets top="2.0" />
+            </VBox.margin></TextField>
+         <HBox.margin>
+            <Insets right="1.0" />
+         </HBox.margin>
+        </VBox>
+
+        <VBox fx:id="RightPaneServerVBox" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
+            <TableView fx:id="serverFilesTableRightPane" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS" />
+            <TextField fx:id="serverStatusLine" editable="false" HBox.hgrow="ALWAYS">
+            <VBox.margin>
+               <Insets top="2.0" />
+            </VBox.margin></TextField>
+         <HBox.margin>
+            <Insets left="1.0" />
+         </HBox.margin>
+        </VBox>
+
     </HBox>
 
     <HBox fx:id="HBoxBtns" spacing="2">
-        <Button text="Copy" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
-        <Button text="Move" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
-        <Button text="ReName" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
-        <Button text="Synch" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
-        <Button text="Delete" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
-        <Button text="Exit" fx:id="btnExit" maxWidth="Infinity" HBox.hgrow="ALWAYS" onAction="#btnExit"/>
-
+        <Button maxWidth="Infinity" text="Copy" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#copyBtnAction"/>
+        <Button maxWidth="Infinity" text="Move" HBox.hgrow="ALWAYS" focusTraversable="false"/>
+        <Button maxWidth="Infinity" text="ReName" HBox.hgrow="ALWAYS" focusTraversable="false"/>
+        <Button maxWidth="Infinity" text="Synch" HBox.hgrow="ALWAYS" focusTraversable="false"/>
+        <Button maxWidth="Infinity" text="Delete" HBox.hgrow="ALWAYS" focusTraversable="false"/>
+        <Button fx:id="btnExit" maxWidth="Infinity" onAction="#btnExit" text="Exit" HBox.hgrow="ALWAYS" focusTraversable="false"/>
+      <VBox.margin>
+         <Insets top="2.0" />
+      </VBox.margin>
     </HBox>
+   <padding>
+      <Insets bottom="5.0" left="2.0" right="2.0" top="5.0" />
+   </padding>
 </VBox>

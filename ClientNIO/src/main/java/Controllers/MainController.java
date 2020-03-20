@@ -4,6 +4,7 @@ import addition.ClientFileInfo;
 import addition.ClientProperties;
 import addition.CommandChannel;
 import addition.NetworkData;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.event.ActionEvent;
@@ -11,6 +12,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.VBox;
 import javafx.util.Callback;
 
@@ -20,9 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
 import java.util.Arrays;
 import java.util.ResourceBundle;
 import java.util.stream.Collectors;
@@ -30,15 +30,28 @@ import java.util.stream.Collectors;
 public class MainController implements Initializable {
 
 
-    public TableView<ClientFileInfo> leftFilesTable;
-    public TableView rightFilesTable;
-
+    //leftPane
+    public TableView<ClientFileInfo> clientFilesTableLeftPane;
     public TextField clientStatusLine;
+    public ComboBox<String> diskBoxLeftPane;
+    public TextField clientPathField;
+
+    //rightPane
+    public TableView serverFilesTableRightPane;
     public TextField serverStatusLine;
 
+    //other elements main.fxml
     public Button btnExit;
-    public VBox mainBox;
 
+
+
+    //переменные отвечающие за размер отображения в панелях
+    private int sizeTypeColumn = 20;
+    private int sizeNameColumn = 300;
+    private int sizeFileSizeColumn = 75;
+
+
+    //class variables
     private SocketChannel socketChannel;
     private ClientProperties properties;
     private ByteBuffer byteBuffer;
@@ -47,6 +60,7 @@ public class MainController implements Initializable {
 
     private String nameMy;
     private Path pathMy;
+
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -61,17 +75,84 @@ public class MainController implements Initializable {
             this.pathMy = Paths.get(tmpData[1]);
             System.out.println(Arrays.toString(tmpData));
 
-
         } catch (IOException e) {
             e.printStackTrace();
         }
 
+        comboBoxUpdate();
         clientTableView();
+    }
 
+    private void clientTableView(){
+
+        TableColumn<ClientFileInfo, String> clientTypeColumn = new TableColumn<>();
+        clientTypeColumn.setCellValueFactory(param -> new SimpleStringProperty(param.getValue().getFileType().getName()));
+        clientTypeColumn.setPrefWidth(sizeTypeColumn);
+
+        TableColumn<ClientFileInfo, String> clientFileNameColumn = new TableColumn<>("name files");
+        clientFileNameColumn.setCellValueFactory(param -> new SimpleStringProperty(param.getValue().getFileName()));
+        clientFileNameColumn.setPrefWidth(sizeNameColumn);
+
+        TableColumn<ClientFileInfo, Long> clientFileSizeColumn = new TableColumn<>("size");
+        clientFileSizeColumn.setCellValueFactory(param -> new SimpleObjectProperty<>(param.getValue().getSize()));
+        clientFileSizeColumn.setPrefWidth(sizeFileSizeColumn);
+        clientFileSizeColumn.setCellFactory(column -> new TableCell<ClientFileInfo, Long>() {
+            @Override
+            protected void updateItem(Long item, boolean empty) {
+                super.updateItem(item, empty);
+                if (item == null || empty){
+                    setText("");
+                    setStyle("");
+                } else {
+                    String text = String.format("%, d bytes", item);
+                    if (item == -1L){
+                        text = "[DIR]";
+                    } else {
+                        //my insert 20.03
+                        if (item > 1_048_576) {
+                            text = String.format("%, d MB", (item / 1_048_576));
+                        } else {
+                            if (item > 1024) {
+                                text = String.format("%, d KB", (item / 1024));
+                            }
+                        }
+                    }
+
+                    setText(text);
+                }
+            }
+        });
+
+        clientFilesTableLeftPane.getColumns().addAll(clientTypeColumn, clientFileNameColumn, clientFileSizeColumn);
+        clientFilesTableLeftPane.getSortOrder().add(clientTypeColumn);
+
+        updateListClient();
+    }
+
+    //обновление клиентских файлов
+    private void updateListClient(){
+        try {
+            clientPathField.setText(pathMy.normalize().toAbsolutePath().toString());
+            clientFilesTableLeftPane.getItems().clear();
+            clientFilesTableLeftPane.getItems().addAll(Files.list(this.pathMy).map(ClientFileInfo::new).collect(Collectors.toList()));
+            clientFilesTableLeftPane.sort();
+        }catch (IOException e){
+            System.err.println("List about file not create");
+        }
+    }
+
+    //подготовительная работа для comboBox - список дисков для клиента
+    private void comboBoxUpdate(){
+        diskBoxLeftPane.getItems().clear();
+        for (Path p: FileSystems.getDefault().getRootDirectories()){
+            diskBoxLeftPane.getItems().add(p.toString());
+        }
+        diskBoxLeftPane.getSelectionModel().select(0);
     }
 
     public void btnExit(ActionEvent actionEvent) {
-        System.out.println("btnExit");
+        Platform.exit();
+//        System.out.println("btnExit");
     }
 
     private String myReadChannel() throws IOException {
@@ -93,53 +174,43 @@ public class MainController implements Initializable {
         this.byteBuffer.clear();
     }
 
-    //наполенение левой части приложения - данных о клиентских файлах
-    private void clientTableView(){
-        TableColumn<ClientFileInfo, String> clientTypeColumn = new TableColumn<>();
-        clientTypeColumn.setCellValueFactory(param -> new SimpleStringProperty(param.getValue().getFileType().getName()));
-        clientTypeColumn.setPrefWidth(20);
-
-        TableColumn<ClientFileInfo, String> clientFileNameColumn = new TableColumn<>("name files");
-        clientFileNameColumn.setCellValueFactory(param -> new SimpleStringProperty(param.getValue().getFileName()));
-        clientFileNameColumn.setPrefWidth(400);
-
-        TableColumn<ClientFileInfo, Long> clientFileSizeColumn = new TableColumn<>("size");
-        clientFileSizeColumn.setCellValueFactory(param -> new SimpleObjectProperty<>(param.getValue().getSize()));
-        clientFileSizeColumn.setPrefWidth(150);
-        clientFileSizeColumn.setCellFactory(column -> {
-            return new TableCell<ClientFileInfo, Long>() {
-                @Override
-                protected void updateItem(Long item, boolean empty) {
-                    super.updateItem(item, empty);
-                    if (item == null || empty){
-                        setText("");
-                        setStyle("");
-                    } else {
-                        String text = String.format("%, d bytes", item);
-                        if (item == -1L){
-                            text = "[DIR]";
-                        }
-                        setText(text);
-                    }
-                }
-            };
-        });
-
-        leftFilesTable.getColumns().addAll(clientTypeColumn, clientFileNameColumn, clientFileSizeColumn);
-        leftFilesTable.getSortOrder().add(clientTypeColumn);
-
-        updateListClient();
-    }
-
-    //обновление клиентских файлов
-    private void updateListClient(){
-        try {
-            leftFilesTable.getItems().clear();
-            leftFilesTable.getItems().addAll(Files.list(this.pathMy).map(ClientFileInfo::new).collect(Collectors.toList()));
-            leftFilesTable.sort();
-        }catch (IOException e){
-            System.err.println("List about file not create");
+    public void btnPathUpLeftPaneAction(ActionEvent actionEvent) {
+        Path upperPath = this.pathMy.getParent();
+        if (upperPath != null){
+            this.pathMy = upperPath;
+            this.updateListClient();
         }
     }
 
+    public void selectDiskLeftPaneAction(ActionEvent actionEvent) {
+        ComboBox<String> element = (ComboBox<String>) actionEvent.getSource();
+        this.pathMy = Paths.get(element.getSelectionModel().getSelectedItem());
+        this.updateListClient();
+    }
+
+    public void clientFilesTableLeftPaneMouseAction(MouseEvent mouseEvent) {
+        if (mouseEvent.getClickCount() == 2){
+            Path tmpPath = pathMy.resolve(clientFilesTableLeftPane.getSelectionModel().getSelectedItem().getFileName());
+            if (Files.isDirectory(tmpPath)){
+                pathMy = tmpPath;
+                updateListClient();
+            }
+        }
+    }
+
+    //работает только с левой стороной , т.е. с клиентской стороной
+    public String getSelectedFileName(){
+        if (!clientFilesTableLeftPane.isFocused()){
+            return null;
+        }
+        return clientFilesTableLeftPane.getSelectionModel().getSelectedItem().getFileName();
+    }
+
+    public String getCurrentPath(){
+        return clientPathField.getText();
+    }
+
+    public void copyBtnAction(ActionEvent actionEvent) {
+        
+    }
 }
