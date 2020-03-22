@@ -104,6 +104,7 @@ public class IdentificationUnit implements Runnable {
             }
 
             new MainUnit(this.socketChannel, this.properties, this.person).run();
+            this.selector.close();
 
         }catch(IOException e){
             e.printStackTrace();

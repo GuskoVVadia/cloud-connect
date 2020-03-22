@@ -11,12 +11,11 @@
 
         <VBox fx:id="LeftPaneClientVBox" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
             <HBox>
-                <ComboBox fx:id="diskBoxLeftPane" onAction="#selectDiskLeftPaneAction"/>
+                <ComboBox fx:id="diskBoxLeftPane" onAction="#selectDiskLeftPaneAction" />
                 <TextField fx:id="clientPathField" editable="false" HBox.hgrow="ALWAYS" />
-                <Button text="Up" onAction="#btnPathUpLeftPaneAction"/>
+                <Button onAction="#btnPathUpLeftPaneAction" text="Up" />
             </HBox>
-            <TableView fx:id="clientFilesTableLeftPane" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS"
-                       onMouseClicked="#clientFilesTableLeftPaneMouseAction"/>
+            <TableView fx:id="clientFilesTableLeftPane" onMouseClicked="#clientFilesTableLeftPaneMouseAction" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS" />
             <TextField fx:id="clientStatusLine" editable="false" HBox.hgrow="ALWAYS">
             <VBox.margin>
                <Insets top="2.0" />
@@ -27,7 +26,7 @@
         </VBox>
 
         <VBox fx:id="RightPaneServerVBox" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
-            <TableView fx:id="serverFilesTableRightPane" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS" />
+            <TableView fx:id="serverFilesTableRightPane" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS"/>
             <TextField fx:id="serverStatusLine" editable="false" HBox.hgrow="ALWAYS">
             <VBox.margin>
                <Insets top="2.0" />
@@ -40,12 +39,12 @@
     </HBox>
 
     <HBox fx:id="HBoxBtns" spacing="2">
-        <Button maxWidth="Infinity" text="Copy" HBox.hgrow="ALWAYS" focusTraversable="false"/>
-        <Button maxWidth="Infinity" text="Move" HBox.hgrow="ALWAYS" focusTraversable="false"/>
-        <Button maxWidth="Infinity" text="ReName" HBox.hgrow="ALWAYS" focusTraversable="false"/>
-        <Button maxWidth="Infinity" text="Synch" HBox.hgrow="ALWAYS" focusTraversable="false"/>
-        <Button maxWidth="Infinity" text="Delete" HBox.hgrow="ALWAYS" focusTraversable="false"/>
-        <Button fx:id="btnExit" maxWidth="Infinity" onAction="#btnExit" text="Exit" HBox.hgrow="ALWAYS" focusTraversable="false"/>
+        <Button focusTraversable="false" maxWidth="Infinity" onAction="#copyBtnAction" text="Copy" HBox.hgrow="ALWAYS" />
+        <Button focusTraversable="false" maxWidth="Infinity" text="Move" HBox.hgrow="ALWAYS" />
+        <Button focusTraversable="false" maxWidth="Infinity" text="ReName" HBox.hgrow="ALWAYS" />
+        <Button fx:id="btnSynch" focusTraversable="false" maxWidth="Infinity" onAction="#btnSynchFileServerAction" text="Synch" HBox.hgrow="ALWAYS" />
+        <Button focusTraversable="false" maxWidth="Infinity" text="Delete" HBox.hgrow="ALWAYS" />
+        <Button fx:id="btnExit" focusTraversable="false" maxWidth="Infinity" onAction="#btnExit" text="Exit" HBox.hgrow="ALWAYS" />
       <VBox.margin>
          <Insets top="2.0" />
       </VBox.margin>

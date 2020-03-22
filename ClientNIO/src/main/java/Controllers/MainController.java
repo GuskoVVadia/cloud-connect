@@ -1,9 +1,6 @@
 package Controllers;
 
-import addition.ClientFileInfo;
-import addition.ClientProperties;
-import addition.CommandChannel;
-import addition.NetworkData;
+import addition.*;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -15,8 +12,10 @@ import javafx.scene.control.*;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.VBox;
 import javafx.util.Callback;
+import javafx.util.Pair;
 
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -24,6 +23,8 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.nio.file.*;
 import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
@@ -37,12 +38,12 @@ public class MainController implements Initializable {
     public TextField clientPathField;
 
     //rightPane
-    public TableView serverFilesTableRightPane;
+    public TableView<ServerFileInfo> serverFilesTableRightPane;
     public TextField serverStatusLine;
 
     //other elements main.fxml
     public Button btnExit;
-
+    public Button btnSynch;
 
 
     //переменные отвечающие за размер отображения в панелях
@@ -55,11 +56,14 @@ public class MainController implements Initializable {
     private SocketChannel socketChannel;
     private ClientProperties properties;
     private ByteBuffer byteBuffer;
+    private int bufferSize;
 
     private CommandChannel currentState;
 
     private String nameMy;
     private Path pathMy;
+
+    private List<Pair<String, Long>> listFilesInServer;
 
 
     @Override
@@ -67,7 +71,8 @@ public class MainController implements Initializable {
 
         this.socketChannel = NetworkData.getInstance().getSocketChannel();
         this.properties = new ClientProperties();
-        this.byteBuffer = ByteBuffer.allocate(this.properties.getBufferSize());
+        this.bufferSize = this.properties.getBufferSize();
+        this.byteBuffer = ByteBuffer.allocate(this.bufferSize);
 
         try {
             String[] tmpData = myReadChannel().split(" ");
@@ -81,6 +86,10 @@ public class MainController implements Initializable {
 
         comboBoxUpdate();
         clientTableView();
+
+        btnSynch.fire();
+        serverTableView();
+
     }
 
     private void clientTableView(){
@@ -151,8 +160,17 @@ public class MainController implements Initializable {
     }
 
     public void btnExit(ActionEvent actionEvent) {
+        sendExitToServer();
         Platform.exit();
-//        System.out.println("btnExit");
+    }
+
+    private void sendExitToServer(){
+        try {
+            System.out.println("jnghfdkty EXIT");
+            myWriteChannel(CommandChannel.EXIT.toString());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private String myReadChannel() throws IOException {
@@ -198,19 +216,175 @@ public class MainController implements Initializable {
         }
     }
 
-    //работает только с левой стороной , т.е. с клиентской стороной
+    //возвращает имя выделенного файла
     public String getSelectedFileName(){
-        if (!clientFilesTableLeftPane.isFocused()){
-            return null;
+        if (clientFilesTableLeftPane == isActivePane()){
+            return clientFilesTableLeftPane.getSelectionModel().getSelectedItem().getFileName();
+        } else {
+            return serverFilesTableRightPane.getSelectionModel().getSelectedItem().getName();
         }
-        return clientFilesTableLeftPane.getSelectionModel().getSelectedItem().getFileName();
+    }
+
+    //возвращает активную панель
+    public TableView isActivePane(){
+        return clientFilesTableLeftPane.isFocused() ? clientFilesTableLeftPane : serverFilesTableRightPane;
     }
 
     public String getCurrentPath(){
         return clientPathField.getText();
     }
 
+    //TODO
     public void copyBtnAction(ActionEvent actionEvent) {
-        
+
+        String nameFileActive = getSelectedFileName();
+
+        if (clientFilesTableLeftPane == isActivePane()){
+
+            Path pathActive = Paths.get(getCurrentPath(), nameFileActive);
+            System.out.println("client " + pathActive);
+
+            if (!Files.isDirectory(pathActive)){
+                fileCopyAtClientToServer(pathActive, nameFileActive);
+            }
+
+        } else {
+            System.out.println("server " + nameFileActive);
+        }
+
     }
+
+    //отправка файла от клиента на сервер
+    private boolean fileCopyAtClientToServer(Path pathActive, String nameFileActive) {
+        boolean answer = true;
+        try {
+            this.serverStatusLine.setText("Copy " + nameFileActive + " on Server");
+
+            //отправка флага на сервер
+            myWriteChannel(CommandChannel.INFILES.toString());
+
+            //!получаем от сервера подтверждение
+            myReadChannel();
+
+
+            long sizeFileOut = Files.size(pathActive);
+            myWriteChannel(nameFileActive + ";" + sizeFileOut);
+            System.out.println(this.bufferSize + " размер буфера, " + sizeFileOut + " размер файла");
+            long count = sizeFileOut / this.bufferSize;
+            count = (count == 0) ? 1 : count;
+            int i = 0;
+
+            myReadChannel();
+
+
+
+            try (
+                    RandomAccessFile rafOut = new RandomAccessFile(pathActive.toString(), "rw");
+            ){
+
+                while (i <= count){
+
+                    this.byteBuffer.clear();
+                    rafOut.getChannel().read(this.byteBuffer);
+                    this.byteBuffer.flip();
+                    Thread.sleep(50);
+                    this.socketChannel.write(this.byteBuffer);
+                    i++;
+                    System.out.println(i);
+                }
+
+            }catch (Exception e){
+                throw new RuntimeException("Error read file" + nameFileActive);
+            }
+
+            this.serverStatusLine.setText("End copy file on Server");
+
+
+        }catch (IOException e){
+            answer = false;
+        }
+
+
+        return answer;
+    }
+
+    //здесь мы получили файлы с сервера в виде list <Pair>.
+    public void btnSynchFileServerAction(ActionEvent actionEvent) {
+        try {
+            System.out.println("отправляю запрос на сервер о файлах");
+            myWriteChannel(CommandChannel.LISTFILES.toString());
+            String stringFilesInServer = myReadChannel();
+            if (!stringFilesInServer.equals("NULL")) {
+                String[] tmpArray = stringFilesInServer.split(";");
+
+                this.listFilesInServer = new LinkedList<>();
+
+                for (int i = 0; i < tmpArray.length; i++) {
+                    String[] line = tmpArray[i].split(" ");
+                    this.listFilesInServer.add(new Pair<String, Long>(line[0], Long.parseLong(line[1])));
+                }
+            } else {
+                this.listFilesInServer = new LinkedList<>();
+            }
+
+        }catch (IOException e){
+            e.printStackTrace();
+        }
+
+        serverTableView();
+    }
+
+    //заполнение правой(серверной) стороны приложения
+    private void serverTableView(){
+
+        TableColumn<ServerFileInfo, String> serverFileNameColumn = new TableColumn<>("name files");
+        serverFileNameColumn.setCellValueFactory(param -> new SimpleStringProperty(param.getValue().getName()));
+        serverFileNameColumn.setPrefWidth(sizeNameColumn);
+
+        TableColumn<ServerFileInfo, Long> serverFileSizeColumn = new TableColumn<>("size");
+        serverFileSizeColumn.setCellValueFactory(param -> new SimpleObjectProperty<>(param.getValue().getSize()));
+        serverFileSizeColumn.setPrefWidth(sizeFileSizeColumn);
+
+        serverFileSizeColumn.setCellFactory(column -> new TableCell<ServerFileInfo, Long>() {
+            @Override
+            protected void updateItem(Long item, boolean empty) {
+                super.updateItem(item, empty);
+                if (item == null || empty){
+                    setText("");
+                    setStyle("");
+                } else {
+                    String text = String.format("%, d bytes", item);
+                    if (item == -1L){
+                        text = "[DIR]";
+                    } else {
+                        //my insert 20.03
+                        if (item > 1_048_576) {
+                            text = String.format("%, d MB", (item / 1_048_576));
+                        } else {
+                            if (item > 1024) {
+                                text = String.format("%, d KB", (item / 1024));
+                            }
+                        }
+                    }
+
+                    setText(text);
+                }
+            }
+        });
+
+        serverFilesTableRightPane.getColumns().clear();
+        serverFilesTableRightPane.getColumns().addAll(serverFileNameColumn, serverFileSizeColumn);
+        serverFilesTableRightPane.getSortOrder().add(serverFileSizeColumn);
+
+        updateListServer();
+
+    }
+
+    //обновление отображения серверных файлов в правом окне приложения
+    private void updateListServer(){
+        serverFilesTableRightPane.getItems().clear();
+        serverFilesTableRightPane.getItems().addAll(this.listFilesInServer.stream().map(ServerFileInfo::new).collect(Collectors.toList()));
+        serverFilesTableRightPane.sort();
+    }
+
 }
