@@ -47,7 +47,8 @@ public class Server implements Runnable{
         while (this.serverSocketChannel.isOpen()){
             try {
                 SocketChannel clientNew = this.serverSocketChannel.accept();
-                new IdentificationUnit(clientNew, this.properties, this.clientData).run();
+                new Thread(new IdentificationUnit(clientNew, this.properties, this.clientData)).start();
+                System.out.println(Thread.currentThread().getName() + " new client");
             } catch (IOException e){
                 e.printStackTrace();
             }

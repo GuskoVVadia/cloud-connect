@@ -6,7 +6,7 @@ import java.util.Map;
 public class Test {
     public static void main(String[] args) {
 
-        new BDServer("user1", "C:\\");
+//        new BDServer("user1", "C:\\");
 
 
     }
