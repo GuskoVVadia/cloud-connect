@@ -15,21 +15,16 @@ import javafx.util.Pair;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.util.Arrays;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 
 public class IdentificationUnit implements Runnable {
 
     private SocketChannel socketChannel;    //сокет
     private ServerProperties properties;    //настройки сервера
     private Map<String, Pair<Integer, String>> clientData;  //данные клиентов
-
 
     private Selector selector;
     private SelectionKey selectionKey;
@@ -59,31 +54,25 @@ public class IdentificationUnit implements Runnable {
     @Override
     public void run() {
         try {
-
             while (!currentState.equals(CommandChannel.IDENTIFI)) {
                 selector.select();
 
                 if (selectionKey.isReadable()){
-
                     String[] inComingPackage = myReadChannel().split(" ");
-
                     String name = inComingPackage[0];
                     int pass = Integer.parseInt(inComingPackage[1]);
                     String path = inComingPackage[2];
 
-                    //TODO
-                    System.out.println("name: " + name + ", path: " + path +
-                            ", pass: "+ pass);
                     Pair<Integer, String> pair = clientData.get(name);
                     if (pair == null){      //Если по имени нет данных в БД
                         myWriteChannel(CommandChannel.ERROR.toString());
                     } else {                //если Пара нашлась
 
                         if (pass == pair.getKey()){ //совпал пароль к имени
-
                             if (path.equals("null") & pair.getValue() == null){ //если введённый путь и путь из БД: все null
                                 myWriteChannel(CommandChannel.PATHNONE.toString());
                             }
+
                             if (path.equals("null") & pair.getValue() != null){ // введён null, а в БД - нет
                                 myWriteChannel(CommandChannel.IDENTIFI.toString());
                                 this.person = new Person(name, pair.getValue());
@@ -103,17 +92,14 @@ public class IdentificationUnit implements Runnable {
                 }
             }
 
-            new MainUnit(this.socketChannel, this.properties, this.person).run();
             this.selector.close();
-
+            new MainUnit(this.socketChannel, this.properties, this.person).run();
         }catch(IOException e){
             e.printStackTrace();
-            System.err.println("client away");
             }
         }
 
     private String myReadChannel() throws IOException {
-
             this.socketChannel.read(bufferIdentifi);
             int tmpSize = bufferIdentifi.position();
             byte[] tmpArray = new byte[tmpSize];
@@ -127,5 +113,4 @@ public class IdentificationUnit implements Runnable {
         ByteBuffer tmpPack = ByteBuffer.wrap(line.getBytes());
         this.socketChannel.write(tmpPack);
     }
-
 }

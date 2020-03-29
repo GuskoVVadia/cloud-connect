@@ -7,6 +7,7 @@ import org.w3c.dom.ls.LSOutput;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
@@ -80,6 +81,13 @@ public class MainUnit implements Runnable{
 
                 //сервер получил запрос на отправку файлов
                 if (currentState == CommandChannel.LISTFILES){
+
+                    try {
+                        Thread.sleep(50);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+
                     sendCurrentStateFiles();
                     this.currentState = CommandChannel.IDLE;
                 }
@@ -98,22 +106,16 @@ public class MainUnit implements Runnable{
                     }
 
                     //получены имя файла и размер
-                    String dataFiles = myReadChannel();
-                    System.out.println("прочитал имя - размер");
-                    String[] tmpArray = dataFiles.split(";");
+                    String[] dataFiles = myReadChannel().split(" ");
+                    Path pathInFile = Paths.get(this.root.toString(), dataFiles[0]);
+                    myWriteChannel("start");
+//                    myWriteChannel("ok");
 
-                    long countPost = Long.parseLong(tmpArray[1]) / this.bufferSize;
-                    countPost = (countPost == 0) ? 1 : countPost;
+                    transferInDirectoryClient(pathInFile, Long.parseLong(dataFiles[1]));
 
-                    /**
-                     * name files = dataFiles[0]
-                     * size files = dataFiles[1]
-                     * количество посылок с клиента по файлу = countPost
-                     */
-
-                    receptionFileOnServer(tmpArray[0], countPost, Long.parseLong(tmpArray[1]));
-
+                    this.currentState = CommandChannel.IDLE;
                 }
+
 
 
             }
@@ -125,35 +127,30 @@ public class MainUnit implements Runnable{
         }
     }
 
-    private void receptionFileOnServer(String dataFile, long countPost, long tmpsize) {
-            System.out.println("получены: " + dataFile + ", " + countPost);
-            try {
-                myWriteChannel("start");
-            } catch (IOException e) {
-                e.printStackTrace();
+    //ver 1.0 stable
+//    void transferIn(final FileChannel channel, long position, long size) throws IOException {
+//
+//        while (position < size) {
+//            position += channel.transferFrom(this.socketChannel, position, this.bufferSize);
+//        }
+//        System.out.println("method transferIn отработал...");
+//    }
+
+    void transferInDirectoryClient(Path pathInFile, long sizeInFile){
+        try (
+                RandomAccessFile rafIn = new RandomAccessFile(pathInFile.toString(), "rw");
+                ){
+
+            long position = 0;
+            while (position < sizeInFile){
+                position += rafIn.getChannel().transferFrom(this.socketChannel, position, this.bufferSize);
             }
-
-            Path pathInFile = Paths.get(this.root.toString(), dataFile);
-            System.out.println(this.bufferSize + " размер файла: " + tmpsize);
-
-            try (
-                    RandomAccessFile rafOut = new RandomAccessFile(pathInFile.toString(), "rw");
-            ) {
-                int i = 0;
-                while (i <= countPost) {
-                    this.byteBuffer.clear();
-                    this.socketChannel.read(this.byteBuffer);
-                    this.byteBuffer.flip();
-
-                    rafOut.getChannel().write(this.byteBuffer);
-                    i++;
-                    System.out.println(i);
-                }
-
-            } catch (Exception e) {
-                throw new RuntimeException("Error write file");
-            }
+        } catch (IOException e){
+            e.printStackTrace();
+        }
     }
+
+
 
     private void sendCurrentStateFiles() throws IOException{
 
@@ -181,16 +178,15 @@ public class MainUnit implements Runnable{
         }
     }
 
-//    private String myReadChannel() throws IOException {
-//        this.socketChannel.read(byteBuffer);
-//        int tmpSize = byteBuffer.position();
-//        byte[] tmpArray = new byte[tmpSize];
-//        this.byteBuffer.flip();
-//        this.byteBuffer.get(tmpArray);
-//        this.byteBuffer.clear();
-//        System.out.println("прочитано" + Arrays.toString(tmpArray));
-//        return new String(tmpArray);
-//    }
+    private byte[] myReadChannelByte() throws IOException {
+        this.socketChannel.read(byteBuffer);
+        int tmpSize = byteBuffer.position();
+        byte[] tmpArray = new byte[tmpSize];
+        this.byteBuffer.flip();
+        this.byteBuffer.get(tmpArray);
+        this.byteBuffer.clear();
+        return tmpArray;
+    }
 
     private String myReadChannel() throws IOException {
         this.socketChannel.read(byteBuffer);

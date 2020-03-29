@@ -18,14 +18,12 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.nio.file.*;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.ResourceBundle;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class MainController implements Initializable {
@@ -166,7 +164,6 @@ public class MainController implements Initializable {
 
     private void sendExitToServer(){
         try {
-            System.out.println("jnghfdkty EXIT");
             myWriteChannel(CommandChannel.EXIT.toString());
         } catch (IOException e) {
             e.printStackTrace();
@@ -260,59 +257,65 @@ public class MainController implements Initializable {
         try {
             this.serverStatusLine.setText("Copy " + nameFileActive + " on Server");
 
-            //отправка флага на сервер
             myWriteChannel(CommandChannel.INFILES.toString());
-
-            //!получаем от сервера подтверждение
             myReadChannel();
 
-
-            long sizeFileOut = Files.size(pathActive);
-            myWriteChannel(nameFileActive + ";" + sizeFileOut);
-            System.out.println(this.bufferSize + " размер буфера, " + sizeFileOut + " размер файла");
-            long count = sizeFileOut / this.bufferSize;
-            count = (count == 0) ? 1 : count;
-            int i = 0;
-
+            long sizeFileActive = Files.size(pathActive);
+            myWriteChannel(nameFileActive + " " + sizeFileActive);
             myReadChannel();
 
-
-
-            try (
-                    RandomAccessFile rafOut = new RandomAccessFile(pathActive.toString(), "rw");
-            ){
-
-                while (i <= count){
-
-                    this.byteBuffer.clear();
-                    rafOut.getChannel().read(this.byteBuffer);
-                    this.byteBuffer.flip();
-                    Thread.sleep(50);
-                    this.socketChannel.write(this.byteBuffer);
-                    i++;
-                    System.out.println(i);
-                }
-
-            }catch (Exception e){
-                throw new RuntimeException("Error read file" + nameFileActive);
-            }
-
+            transferOut(pathActive, sizeFileActive);
             this.serverStatusLine.setText("End copy file on Server");
-
-
         }catch (IOException e){
             answer = false;
         }
-
-
         return answer;
     }
+
+    /**
+     * Отправка файла на сервер
+     * @param pathActive путь к файлу из ОС
+     * @param sizeActiveFile размер файла в байтах long
+     * @throws IOException проблема со считываением данных из файла
+     */
+    //ver 1.0
+    void transferOut(Path pathActive, long sizeActiveFile) throws IOException {
+        try (
+                RandomAccessFile rafOut = new RandomAccessFile(pathActive.toString(), "r");
+                ){
+            long position = 0;
+            while (position < sizeActiveFile){
+                position += rafOut.getChannel().transferTo(position, this.bufferSize, this.socketChannel);
+            }
+        }
+    }
+
+    void transferIn(Path pathInFile, long sizeInFile){
+        try (
+                RandomAccessFile rafIn = new RandomAccessFile(pathInFile.toString(), "rw");
+        ){
+            long position = 0;
+            while (position < sizeInFile){
+                position += rafIn.getChannel().transferFrom(this.socketChannel, position, this.bufferSize);
+            }
+        } catch (IOException e){
+            e.printStackTrace();
+        }
+    }
+
 
     //здесь мы получили файлы с сервера в виде list <Pair>.
     public void btnSynchFileServerAction(ActionEvent actionEvent) {
         try {
             System.out.println("отправляю запрос на сервер о файлах");
             myWriteChannel(CommandChannel.LISTFILES.toString());
+
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
             String stringFilesInServer = myReadChannel();
             if (!stringFilesInServer.equals("NULL")) {
                 String[] tmpArray = stringFilesInServer.split(";");
@@ -328,6 +331,7 @@ public class MainController implements Initializable {
             }
 
         }catch (IOException e){
+            System.out.println("error synch");
             e.printStackTrace();
         }
 
